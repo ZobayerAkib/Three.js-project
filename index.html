@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>A Wardrobe [18.02.04.075, 18.02.04.081]</title>
+	<style>
+		body {
+			margin: 0;
+		}
+	</style>
+</head>
+
+<body>
+	<script src="threeJs/three.js"></script>
+	<!---Color 1 --->
+	<script id="fragmentShader" type="x-shader/x-fragment">
+        void main()	{          
+            gl_FragColor = vec4(0.224, 0.126, 0.095, 1.0);
+        }
+    </script>
+    <!---Color 2 --->
+	<script id="fragmentShader2" type="x-shader/x-fragment">
+        void main()	{          
+            gl_FragColor = vec4(0.31, 0.176, 0.129, 1.0);
+        }
+    </script>
+
+	<script>
+		//canvas size initialize
+		const canv = document.querySelector("#parent");
+		const sizes = {
+			width: window.innerWidth,
+			height: window.innerHeight,
+		};
+		//camera movement
+		var camlok = { height: 0.9, speed: 0.015 };
+
+		var drawer1
+		var drawer2
+		var drawer3
+		
+		//init function
+		function init() {
+			scene = new THREE.Scene(); //creates a new Three.js scene container
+			//(angle in degrees,ratio of the camera's view frustum,near clipping plane distance,far clipping plane distance)
+			camera = new THREE.PerspectiveCamera(90, sizes.width / sizes.height, 0.1, 1000);
+
+			//texture loader
+			var texture_floor = new THREE.TextureLoader().load("textures/floor.jpg");
+			var texture_wd = new THREE.TextureLoader().load("textures/wardrove.jpg");
+			var texture_dr1 = new THREE.TextureLoader().load("textures/drawer1.jpg");
+			var texture_dr2 = new THREE.TextureLoader().load("textures/drawer2.jpg");
+
+			//to create a texture for a floor object in a 3D scene
+			texture_floor.wrapS = THREE.RepeatWrapping; //the texture will be repeated horizontally.
+			texture_floor.wrapT = THREE.RepeatWrapping; //the texture will be repeated vertically.
+			texture_floor.repeat.set(5, 5); //the number of times the texture will be repeated horizontally and vertically.
+
+			//Wardrobe
+			//to create a 3D mesh object of a wardrobe with a wooden texture
+			wardrobe = new THREE.Mesh(
+				new THREE.BoxGeometry(2.1, 2, 0.20), //(width, height, and depth)
+				//to simulate light reflections
+				new THREE.MeshPhongMaterial({
+					map: texture_wd
+				}) //for shadow
+			);
+			scene.add(wardrobe);
+			wardrobe.position.set(0, 1, 0);
+			wardrobe.receiveShadow = true;
+			wardrobe.castShadow = true;
+
+			//Drawer 
+			drawer1 = new THREE.Mesh(
+				new THREE.BoxGeometry(1.7, 0.55, 0.15),
+				new THREE.MeshBasicMaterial({
+					map: texture_dr1
+				})
+			);
+			scene.add(drawer1);
+			drawer1.position.set(0, 1.55, -0.035);
+
+			drawer2 = new THREE.Mesh(
+				new THREE.BoxGeometry(1.7, 0.55, 0.15),
+				new THREE.MeshBasicMaterial({
+					map: texture_dr2
+				})
+			);
+			scene.add(drawer2);
+			drawer2.position.set(0.0, 0.97, -0.035);
+
+			drawer3 = new THREE.Mesh(
+				new THREE.BoxGeometry(1.7, 0.5, 0.15),
+				new THREE.MeshBasicMaterial({
+					map: texture_dr2
+				})
+			);
+			scene.add(drawer3);
+			drawer3.position.set(0.0, 0.4, -0.035);
+
+			//Bottom
+			// ShaderMaterial=a custom shader for rendering the mesh
+			bot1 = new THREE.Mesh(
+				new THREE.BoxGeometry(2.2, 0.1, 0.25),
+				new THREE.ShaderMaterial({
+					fragmentShader: document.getElementById('fragmentShader').textContent
+				})
+			);
+			scene.add(bot1);
+			bot1.position.set(0.005, 0.04, -0.035);
+
+			//Top
+			top1 = new THREE.Mesh(
+				new THREE.BoxGeometry(2.2, 0.05, 0.12),
+				new THREE.ShaderMaterial({
+					fragmentShader: document.getElementById('fragmentShader2').textContent
+				})
+			);
+			scene.add(top1);
+			top1.position.set(0.005, 2.04, -0.035);
+
+			//Floor
+			floor = new THREE.Mesh(
+				new THREE.PlaneGeometry(100, 100),  //(height,width)
+				new THREE.MeshPhongMaterial({
+					color: "linen", //the base color of the material
+					wireframe: false, //disables the wireframe mode and renders the material as a solid surface.
+					map: texture_floor
+				})
+			);
+			floor.rotation.x -= Math.PI / 2;
+			floor.receiveShadow = true;
+			scene.add(floor);
+
+			//AmbientLight=the effect of indirect lighting in a scene
+			ambientLight = new THREE.AmbientLight(0xffffff, 0.5); //(color,intensity)
+			scene.add(ambientLight);
+			
+			//pointLight
+			light = new THREE.PointLight(0xffffff, 1, 100);
+			light.position.set(-3, 6, -3);
+			light.castShadow = true;
+			
+			scene.add(light);
+
+			//the position and orientation of the camera
+			camera.position.set(0, camlok.height, -1.5);
+			camera.lookAt(new THREE.Vector3(0, camlok.height, 0));
+
+			//renderer
+			renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setSize(sizes.width, sizes.height);
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			renderer.setClearColor("skyblue");
+			document.body.appendChild(renderer.domElement);
+			renderer.physicallyCorrectLights = false;
+
+			resizeRendererToDisplaySize(renderer);
+
+			const canvas = renderer.domElement;
+			camera.aspect = canvas.clientWidth / canvas.clientHeight;
+			camera.updateProjectionMatrix();
+
+			animate();
+		}
+
+		function resizeRendererToDisplaySize(renderer) {
+			const canvas = renderer.domElement;
+			const width = canvas.clientWidth;
+			const height = canvas.clientHeight;
+			const needResize = canvas.width !== width || canvas.height !== height;
+			if (needResize)
+				renderer.setSize(width, height, false);
+			return needResize;
+		}
+
+		var keyboard = {}, degree = 0, click = 0;
+		function animate() {
+			setTimeout(function () { requestAnimationFrame(animate); }, 1000 / 100);
+
+			//Up Arrow
+			if (keyboard[38]) {
+				camera.position.z -= -Math.cos(camera.rotation.y) * camlok.speed;
+			}
+
+			//Down Arrow
+			if (keyboard[40]) {
+				camera.position.z += -Math.cos(camera.rotation.y) * camlok.speed;
+			}
+
+			//left Arrow
+			if (keyboard[37]) {
+				camera.position.x += Math.sin(camera.rotation.y + Math.PI / 2) * camlok.speed;
+			}
+
+			//Right Arrow
+			if (keyboard[39]) {
+				camera.position.x += Math.sin(camera.rotation.y - Math.PI / 2) * camlok.speed;
+			}
+
+			//Left turn(l)
+			if (keyboard[76]) {
+				camera.rotation.y -= Math.PI * 0.01;
+			}
+
+			//Right turn(r)
+			if (keyboard[82]) {
+				camera.rotation.y += Math.PI * 0.01;
+			}
+
+			//lightAnimation
+			if (degree < 360) {
+				degree += 0.5;
+			}
+			else {
+				degree = 0;
+			}
+			light.position.x = Math.sin(degree * Math.PI / 180) * 3;
+			light.position.z = Math.cos(degree * Math.PI / 180) * 3;
+
+			renderer.render(scene, camera);
+		}
+
+		function keyDown(event) {
+			keyboard[event.keyCode] = true;
+		}
+
+		function keyUp(event) {
+			keyboard[event.keyCode] = false;
+		}
+
+		function onClick(event) {
+			if (click < 6)
+				click += 1;
+			else
+				click = 1;
+
+			//texture loader
+			var texture_wd = new THREE.TextureLoader().load("textures/wardrove.jpg");
+			var texture_dr1 = new THREE.TextureLoader().load("textures/drawer1.jpg");
+			var texture_dr2 = new THREE.TextureLoader().load("textures/drawer2.jpg");
+
+			switch (click) {
+				case 1:	
+					drawer1.position.set(0, 1.55, -0.15);
+					break;
+				case 2:
+					drawer1.position.set(0, 1.55, -0.035);
+					break;
+				case 3:					
+					drawer2.position.set(0, 0.95, -0.15);
+					break;
+				case 4:
+					drawer2.position.set(0.0, 0.97, -0.035);
+					break;
+				case 5:
+					drawer3.position.set(0, 0.35, -0.15);
+					break;
+				case 6:
+					drawer3.position.set(0.0, 0.4, -0.035);
+					break;
+				default:
+			}
+		}
+		//eventListener
+		window.addEventListener('keydown', keyDown);
+		window.addEventListener('keyup', keyUp);
+		window.addEventListener('click', onClick);
+		window.onload = init;
+	</script>
+</body>
+
+</html>
